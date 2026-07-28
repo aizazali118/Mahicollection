@@ -64,6 +64,7 @@ export function CheckoutForm({
 
     setSubmitting(true);
     setError("");
+    const whatsappWindow = window.open("", "mahi-order-whatsapp");
     const formData = new FormData(event.currentTarget);
     const payload = {
       name: String(formData.get("name") || ""),
@@ -80,25 +81,52 @@ export function CheckoutForm({
       }))
     };
 
-    const response = await fetch("/api/orders", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    const data = (await response.json()) as {
-      error?: string;
-      orderNumber?: string;
-    };
+    try {
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 30000);
+      const response = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+      window.clearTimeout(timeout);
 
-    if (!response.ok || !data.orderNumber) {
+      const data = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        orderNumber?: string;
+        whatsappUrl?: string | null;
+      };
+
+      if (!response.ok || !data.orderNumber) {
+        whatsappWindow?.close();
+        setError(data.error || "Your order could not be placed.");
+        return;
+      }
+
+      clearCart();
+      if (data.whatsappUrl) {
+        if (whatsappWindow) {
+          whatsappWindow.location.href = data.whatsappUrl;
+        } else {
+          window.location.href = data.whatsappUrl;
+          return;
+        }
+      } else {
+        whatsappWindow?.close();
+      }
+      router.push(`/order-success/${data.orderNumber}`);
+      router.refresh();
+    } catch (requestError) {
+      whatsappWindow?.close();
+      setError(
+        requestError instanceof DOMException && requestError.name === "AbortError"
+          ? "The server took too long to respond. Please check your internet connection and try again."
+          : "The order could not be placed. Please check your connection and try again."
+      );
+    } finally {
       setSubmitting(false);
-      setError(data.error || "Your order could not be placed.");
-      return;
     }
-
-    clearCart();
-    router.push(`/order-success/${data.orderNumber}`);
-    router.refresh();
   }
 
   if (!ready) return <div className="page-loader">Preparing checkout...</div>;

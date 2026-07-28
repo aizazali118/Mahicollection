@@ -6,6 +6,8 @@ import { calculateCouponDiscount } from "@/lib/coupon";
 import { prisma } from "@/lib/prisma";
 import { getStoreSettings } from "@/lib/store";
 
+export const maxDuration = 30;
+
 const schema = z.object({
   name: z.string().trim().min(2).max(100),
   email: z.string().trim().email().max(160),
@@ -205,10 +207,46 @@ export async function POST(request: Request) {
       });
     });
 
+    const whatsappNumber = settings.whatsappNumber.replace(/\D/g, "");
+    const money = (value: number) =>
+      new Intl.NumberFormat("en-PK", {
+        style: "currency",
+        currency: settings.currency || "PKR",
+        maximumFractionDigits: 0
+      }).format(value);
+    const whatsappMessage = [
+      "Assalam-o-Alaikum Mahi Collection,",
+      "",
+      `I have placed order ${order.orderNumber}.`,
+      `Name: ${body.name}`,
+      `Phone: ${body.phone}`,
+      `Email: ${body.email.toLowerCase()}`,
+      `City: ${body.city}`,
+      `Address: ${body.address}`,
+      "",
+      "Items:",
+      ...preparedItems.map(
+        (item) =>
+          `- ${item.title}${item.variantLabel ? ` (${item.variantLabel})` : ""} x ${item.quantity} - ${money(item.price * item.quantity)}`
+      ),
+      "",
+      `Subtotal: ${money(subtotal)}`,
+      `Discount: ${money(discount)}`,
+      `Delivery: ${shipping ? money(shipping) : "Free"}`,
+      `Total: ${money(total)}`,
+      body.note ? `Note: ${body.note}` : ""
+    ]
+      .filter(Boolean)
+      .join("\n");
+    const whatsappUrl = whatsappNumber
+      ? `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`
+      : null;
+
     return NextResponse.json(
       {
         orderNumber: order.orderNumber,
-        total: Number(order.total)
+        total: Number(order.total),
+        whatsappUrl
       },
       { status: 201 }
     );
