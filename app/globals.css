@@ -1001,12 +1001,12 @@ main {
 .product-card__actions {
   position: absolute;
   z-index: 4;
-  right: 12px;
-  bottom: 12px;
+  right: 16px;
+  bottom: 16px;
   display: flex;
   gap: 7px;
   opacity: 0;
-  transform: translateY(8px);
+  transform: translateX(8px);
   transition:
     opacity 0.25s ease,
     transform 0.25s ease;
@@ -1019,6 +1019,7 @@ main {
 
 .product-card__actions button {
   display: grid;
+  flex: 0 0 42px;
   width: 42px;
   height: 42px;
   place-items: center;
