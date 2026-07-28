@@ -1,0 +1,236 @@
+import { randomUUID } from "node:crypto";
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { getSessionPayload } from "@/lib/auth";
+import { calculateCouponDiscount } from "@/lib/coupon";
+import { prisma } from "@/lib/prisma";
+import { getStoreSettings } from "@/lib/store";
+
+const schema = z.object({
+  name: z.string().trim().min(2).max(100),
+  email: z.string().trim().email().max(160),
+  phone: z.string().trim().min(7).max(30),
+  address: z.string().trim().min(8).max(500),
+  city: z.string().trim().min(2).max(100),
+  note: z.string().trim().max(1000).optional().default(""),
+  couponCode: z.string().trim().max(40).optional(),
+  items: z
+    .array(
+      z.object({
+        productId: z.string().min(1),
+        variantId: z.string().min(1).optional(),
+        quantity: z.number().int().min(1).max(20)
+      })
+    )
+    .min(1)
+    .max(50)
+});
+
+export async function POST(request: Request) {
+  try {
+    const body = schema.parse(await request.json());
+    const productIds = Array.from(
+      new Set(body.items.map((item) => item.productId))
+    );
+    const products = await prisma.product.findMany({
+      where: {
+        id: { in: productIds },
+        published: true
+      },
+      include: { variants: true }
+    });
+
+    const productMap = new Map(products.map((product) => [product.id, product]));
+    const preparedItems: Array<{
+      productId: string;
+      variantId?: string;
+      title: string;
+      variantLabel?: string;
+      image: string;
+      price: number;
+      quantity: number;
+    }> = [];
+
+    for (const requested of body.items) {
+      const product = productMap.get(requested.productId);
+      if (!product) {
+        return NextResponse.json(
+          { error: "One of the selected products is no longer available." },
+          { status: 400 }
+        );
+      }
+
+      if (product.type === "VARIABLE") {
+        const variant = product.variants.find(
+          (item) => item.id === requested.variantId
+        );
+        if (!variant || variant.stock < requested.quantity) {
+          return NextResponse.json(
+            {
+              error: `${product.title}: the selected colour or size is unavailable in the requested quantity.`
+            },
+            { status: 400 }
+          );
+        }
+
+        preparedItems.push({
+          productId: product.id,
+          variantId: variant.id,
+          title: product.title,
+          variantLabel: [variant.colorName, variant.size]
+            .filter(Boolean)
+            .join(" / "),
+          image: variant.image || product.mainImage,
+          price: Number(variant.price || product.price),
+          quantity: requested.quantity
+        });
+      } else {
+        if (product.stock < requested.quantity) {
+          return NextResponse.json(
+            {
+              error: `${product.title}: only ${product.stock} item(s) remain in stock.`
+            },
+            { status: 400 }
+          );
+        }
+
+        preparedItems.push({
+          productId: product.id,
+          title: product.title,
+          image: product.mainImage,
+          price: Number(product.price),
+          quantity: requested.quantity
+        });
+      }
+    }
+
+    const subtotal = preparedItems.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
+
+    let coupon = null;
+    let discount = 0;
+    if (body.couponCode) {
+      coupon = await prisma.coupon.findUnique({
+        where: { code: body.couponCode.toUpperCase() }
+      });
+      if (!coupon) {
+        return NextResponse.json(
+          { error: "The coupon code is not valid." },
+          { status: 400 }
+        );
+      }
+      const couponResult = calculateCouponDiscount(coupon, subtotal);
+      if (!couponResult.valid) {
+        return NextResponse.json(
+          { error: couponResult.error },
+          { status: 400 }
+        );
+      }
+      discount = couponResult.discount;
+    }
+
+    const settings = await getStoreSettings();
+    const shipping =
+      subtotal >= Number(settings.freeShippingThreshold)
+        ? 0
+        : Number(settings.shippingFlatRate);
+    const total = Math.max(0, subtotal - discount + shipping);
+    const session = await getSessionPayload();
+    const datePart = new Date().toISOString().slice(2, 10).replace(/-/g, "");
+    const orderNumber = `MC-${datePart}-${randomUUID().slice(0, 6).toUpperCase()}`;
+
+    const order = await prisma.$transaction(async (tx) => {
+      for (const item of preparedItems) {
+        if (item.variantId) {
+          const updated = await tx.productVariant.updateMany({
+            where: {
+              id: item.variantId,
+              stock: { gte: item.quantity }
+            },
+            data: { stock: { decrement: item.quantity } }
+          });
+          if (updated.count !== 1) {
+            throw new Error(`${item.title} stock changed during checkout.`);
+          }
+        } else {
+          const updated = await tx.product.updateMany({
+            where: {
+              id: item.productId,
+              stock: { gte: item.quantity }
+            },
+            data: { stock: { decrement: item.quantity } }
+          });
+          if (updated.count !== 1) {
+            throw new Error(`${item.title} stock changed during checkout.`);
+          }
+        }
+      }
+
+      if (coupon) {
+        await tx.coupon.update({
+          where: { id: coupon.id },
+          data: { usedCount: { increment: 1 } }
+        });
+      }
+
+      return tx.order.create({
+        data: {
+          orderNumber,
+          customerId: session?.userId,
+          name: body.name,
+          email: body.email.toLowerCase(),
+          phone: body.phone,
+          address: body.address,
+          city: body.city,
+          note: body.note || null,
+          subtotal,
+          discount,
+          shipping,
+          total,
+          couponCode: coupon?.code,
+          items: {
+            create: preparedItems.map((item) => ({
+              productId: item.productId,
+              variantId: item.variantId,
+              title: item.title,
+              variantLabel: item.variantLabel,
+              image: item.image,
+              price: item.price,
+              quantity: item.quantity
+            }))
+          }
+        }
+      });
+    });
+
+    return NextResponse.json(
+      {
+        orderNumber: order.orderNumber,
+        total: Number(order.total)
+      },
+      { status: 201 }
+    );
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        {
+          error:
+            "Please complete your name, email, phone, city, address, and order items."
+        },
+        { status: 400 }
+      );
+    }
+    console.error(error);
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error && error.message.includes("stock changed")
+            ? "Stock changed while you were checking out. Please review your bag and try again."
+            : "The order could not be placed. Please try again."
+      },
+      { status: 500 }
+    );
+  }
+}
