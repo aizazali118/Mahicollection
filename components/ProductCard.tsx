@@ -1,6 +1,6 @@
 "use client";
 
-import { Eye, ShoppingBag, X } from "lucide-react";
+import { X } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useCart } from "@/components/CartProvider";
@@ -57,23 +57,6 @@ export function ProductCard({ product }: { product: ProductCardData }) {
             <span className="product-badge">Sale</span>
           ) : null}
           {soldOut ? <span className="product-badge sold">Sold out</span> : null}
-          <div className="product-card__actions">
-            <button
-              type="button"
-              onClick={() => setQuickOpen(true)}
-              aria-label={`Quick view ${product.title}`}
-            >
-              <Eye size={18} />
-            </button>
-            <button
-              type="button"
-              onClick={quickAdd}
-              disabled={soldOut}
-              aria-label={`Add ${product.title} to cart`}
-            >
-              <ShoppingBag size={18} />
-            </button>
-          </div>
         </div>
         <div className="product-card__content">
           <Link href={`/shop?collection=${product.collectionSlug}`}>
