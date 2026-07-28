@@ -978,6 +978,49 @@ main {
   transform: scale(1.025);
 }
 
+.product-card__actions {
+  position: absolute;
+  z-index: 4;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  gap: 7px;
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(8px);
+  transition:
+    visibility 0s linear 0.25s,
+    opacity 0.25s ease,
+    transform 0.25s ease;
+}
+
+.product-card:hover .product-card__actions,
+.product-card:focus-within .product-card__actions {
+  visibility: visible;
+  opacity: 1;
+  transform: translateY(0);
+  transition-delay: 0s;
+}
+
+.product-card__actions button {
+  display: grid;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 7px 20px rgba(34, 26, 18, 0.17);
+  cursor: pointer;
+}
+
+.product-card__actions button:hover,
+.product-card__actions button:focus-visible {
+  background: var(--ink);
+  color: #fff;
+}
+
 .product-badge {
   position: absolute;
   z-index: 3;
