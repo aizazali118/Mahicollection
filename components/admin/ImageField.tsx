@@ -21,25 +21,45 @@ export function ImageField({
   async function upload(file: File) {
     setUploading(true);
     setError("");
-    const data = new FormData();
-    data.append("file", file);
+    try {
+      // Prefer Cloudinary unsigned uploads if configured via NEXT_PUBLIC_ env vars
+      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+      const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+      if (cloudName && uploadPreset) {
+        const cloudData = new FormData();
+        cloudData.append("file", file);
+        cloudData.append("upload_preset", uploadPreset);
 
-    const response = await fetch("/api/admin/upload", {
-      method: "POST",
-      body: data
-    });
-    const result = (await response.json()) as { url?: string; error?: string };
-    setUploading(false);
+        const cloudResp = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/upload`, {
+          method: "POST",
+          body: cloudData
+        });
+        const cloudJson = await cloudResp.json();
+        if (cloudResp.ok && cloudJson.secure_url) {
+          onChange(cloudJson.secure_url);
+          return;
+        }
+        // fallthrough to server upload if cloudinary fails
+      }
 
-    if (!response.ok || !result.url) {
-      setError(
-        result.error ||
-          "Upload failed. You can still paste a public image URL below."
-      );
-      return;
+      const data = new FormData();
+      data.append("file", file);
+
+      const response = await fetch("/api/admin/upload", {
+        method: "POST",
+        body: data
+      });
+      const result = (await response.json()) as { url?: string; error?: string };
+      if (!response.ok || !result.url) {
+        setError(result.error || "Upload failed. You can still paste a public image URL below.");
+        return;
+      }
+      onChange(result.url);
+    } catch (e) {
+      setError("Upload failed. You can still paste a public image URL below.");
+    } finally {
+      setUploading(false);
     }
-
-    onChange(result.url);
   }
 
   return (

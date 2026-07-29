@@ -2,7 +2,7 @@
 
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { ImageField } from "@/components/admin/ImageField";
 import { slugify } from "@/lib/slugify";
 
@@ -65,6 +65,8 @@ export function AdminProductForm({
   const [galleryText, setGalleryText] = useState(
     initial?.gallery.join("\n") || ""
   );
+  const galleryInputRef = useRef<HTMLInputElement | null>(null);
+  const [galleryUploading, setGalleryUploading] = useState(false);
   const [collectionId, setCollectionId] = useState(
     initial?.collectionId || collections[0]?.id || ""
   );
@@ -276,7 +278,62 @@ export function AdminProductForm({
           required
         />
         <label className="full-field">
-          Gallery image URLs
+          Gallery images
+          <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+            <button
+              type="button"
+              className="admin-secondary-button"
+              onClick={() => galleryInputRef.current?.click()}
+              disabled={galleryUploading}
+            >
+              {galleryUploading ? "Uploading..." : "Upload gallery image"}
+            </button>
+            <input
+              hidden
+              ref={galleryInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/avif"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                setGalleryUploading(true);
+                setError("");
+                try {
+                  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+                  const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+                  let url = "";
+                  if (cloudName && uploadPreset) {
+                    const cloudData = new FormData();
+                    cloudData.append("file", file);
+                    cloudData.append("upload_preset", uploadPreset);
+                    const cloudResp = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/upload`, {
+                      method: "POST",
+                      body: cloudData
+                    });
+                    const cloudJson = await cloudResp.json();
+                    if (cloudResp.ok && cloudJson.secure_url) {
+                      url = cloudJson.secure_url;
+                    }
+                  }
+                  if (!url) {
+                    const data = new FormData();
+                    data.append("file", file);
+                    const resp = await fetch("/api/admin/upload", { method: "POST", body: data });
+                    const json = await resp.json();
+                    if (!resp.ok || !json.url) throw new Error(json.error || "Upload failed");
+                    url = json.url;
+                  }
+                  setGalleryText((cur) => (cur ? `${cur}\n${url}` : url));
+                } catch (e: any) {
+                  setError(e?.message || "Gallery upload failed");
+                } finally {
+                  setGalleryUploading(false);
+                  // clear the input so same file can be selected again
+                  e.currentTarget.value = "";
+                }
+              }}
+            />
+          </div>
           <textarea
             value={galleryText}
             onChange={(event) => setGalleryText(event.target.value)}

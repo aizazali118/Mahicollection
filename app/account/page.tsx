@@ -2,9 +2,7 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { formatMoney } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
-import dynamic from "next/dynamic";
-
-const AccountProfile = dynamic(() => import("@/components/AccountProfile"), { ssr: false });
+import AccountProfile from "@/components/AccountProfile";
 
 export const metadata = {
   title: "My Account"
