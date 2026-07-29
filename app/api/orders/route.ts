@@ -1,9 +1,11 @@
-import { randomUUID } from "node:crypto";
+import bcrypt from "bcryptjs";
+import { randomBytes, randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSessionPayload } from "@/lib/auth";
 import { calculateCouponDiscount } from "@/lib/coupon";
 import { prisma } from "@/lib/prisma";
+import { isStrongPassword, passwordRequirementsMessage } from "@/lib/password-policy";
 import { getStoreSettings } from "@/lib/store";
 
 export const maxDuration = 30;
@@ -16,6 +18,8 @@ const schema = z.object({
   city: z.string().trim().min(2).max(100),
   note: z.string().trim().max(1000).optional().default(""),
   couponCode: z.string().trim().max(40).optional(),
+  createAccount: z.boolean().optional().default(false),
+  password: z.string().trim().min(8).max(128).optional(),
   items: z
     .array(
       z.object({
@@ -31,6 +35,10 @@ const schema = z.object({
 export async function POST(request: Request) {
   try {
     const body = schema.parse(await request.json());
+    if (body.createAccount && body.password && !isStrongPassword(body.password)) {
+      return NextResponse.json({ error: passwordRequirementsMessage }, { status: 400 });
+    }
+
     const productIds = Array.from(
       new Set(body.items.map((item) => item.productId))
     );
@@ -144,6 +152,26 @@ export async function POST(request: Request) {
     const orderNumber = `MC-${datePart}-${randomUUID().slice(0, 6).toUpperCase()}`;
 
     const order = await prisma.$transaction(async (tx) => {
+      let user = null;
+      if (body.createAccount) {
+        const email = body.email.toLowerCase();
+        const username = email.split("@")[0].replace(/[^a-z0-9_-]+/g, "").slice(0, 24) || `customer${randomBytes(4).toString("hex")}`;
+        const existingUser = await tx.user.findFirst({
+          where: { OR: [{ email }, { username }] },
+          select: { id: true }
+        });
+
+        if (!existingUser && body.password) {
+          user = await tx.user.create({
+            data: {
+              name: body.name,
+              username,
+              email,
+              passwordHash: await bcrypt.hash(body.password, 12)
+            }
+          });
+        }
+      }
       for (const item of preparedItems) {
         if (item.variantId) {
           const updated = await tx.productVariant.updateMany({
@@ -180,7 +208,7 @@ export async function POST(request: Request) {
       return tx.order.create({
         data: {
           orderNumber,
-          customerId: session?.userId,
+          customerId: user?.id || session?.userId,
           name: body.name,
           email: body.email.toLowerCase(),
           phone: body.phone,
@@ -238,6 +266,20 @@ export async function POST(request: Request) {
     ]
       .filter(Boolean)
       .join("\n");
+    const resetToken = body.createAccount && body.password
+      ? randomBytes(32).toString("hex")
+      : null;
+
+    if (body.createAccount && resetToken) {
+      await prisma.user.updateMany({
+        where: { email: body.email.toLowerCase() },
+        data: {
+          passwordResetToken: resetToken,
+          passwordResetExpiresAt: new Date(Date.now() + 1000 * 60 * 60)
+        }
+      });
+    }
+
     const whatsappUrl = whatsappNumber
       ? `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`
       : null;
@@ -246,7 +288,12 @@ export async function POST(request: Request) {
       {
         orderNumber: order.orderNumber,
         total: Number(order.total),
-        whatsappUrl
+        whatsappUrl,
+        accountCreated: Boolean(resetToken),
+        resetSent: Boolean(resetToken),
+        message: resetToken
+          ? "Account created. A password reset link has been sent to your email so you can set your password."
+          : undefined
       },
       { status: 201 }
     );

@@ -6,6 +6,7 @@ import {
   setSessionCookie
 } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { isStrongPassword, passwordRequirementsMessage } from "@/lib/password-policy";
 
 const schema = z.object({
   name: z.string().trim().min(2).max(80),
@@ -22,6 +23,14 @@ const schema = z.object({
 export async function POST(request: Request) {
   try {
     const body = schema.parse(await request.json());
+
+    if (!isStrongPassword(body.password)) {
+      return NextResponse.json(
+        { error: passwordRequirementsMessage },
+        { status: 400 }
+      );
+    }
+
     const email = body.email.toLowerCase();
     const username = body.username.toLowerCase();
 
@@ -74,8 +83,7 @@ export async function POST(request: Request) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         {
-          error:
-            "Please provide a valid name, username, email, and password of at least 8 characters."
+          error: passwordRequirementsMessage
         },
         { status: 400 }
       );

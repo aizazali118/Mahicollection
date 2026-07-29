@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useCart } from "@/components/CartProvider";
 import { formatMoney } from "@/lib/money";
+import { passwordRequirementsMessage } from "@/lib/password-policy";
 
 type CheckoutProps = {
   shippingFlatRate: number;
@@ -23,6 +24,8 @@ export function CheckoutForm({
   const [couponLoading, setCouponLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [accountMessage, setAccountMessage] = useState("");
+  const [createAccount, setCreateAccount] = useState(true);
 
   const shipping = useMemo(
     () => (subtotal >= freeShippingThreshold ? 0 : shippingFlatRate),
@@ -74,6 +77,8 @@ export function CheckoutForm({
       city: String(formData.get("city") || ""),
       note: String(formData.get("note") || ""),
       couponCode: couponCode.trim() || undefined,
+      createAccount,
+      password: String(formData.get("password") || ""),
       items: items.map((item) => ({
         productId: item.productId,
         variantId: item.variantId,
@@ -96,6 +101,9 @@ export function CheckoutForm({
         error?: string;
         orderNumber?: string;
         whatsappUrl?: string | null;
+        accountCreated?: boolean;
+        resetSent?: boolean;
+        message?: string;
       };
 
       if (!response.ok || !data.orderNumber) {
@@ -104,6 +112,11 @@ export function CheckoutForm({
         return;
       }
 
+      setAccountMessage(
+        data.accountCreated && data.resetSent
+          ? "Account created. A password reset link has been sent to your email so you can set your password."
+          : data.message || ""
+      );
       clearCart();
       if (data.whatsappUrl) {
         if (whatsappWindow) {
@@ -177,6 +190,26 @@ export function CheckoutForm({
             <input name="city" required autoComplete="address-level2" />
           </label>
           <label className="full-field">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+              <span>Create account for this order</span>
+              <input
+                type="checkbox"
+                checked={createAccount}
+                onChange={(event) => setCreateAccount(event.target.checked)}
+                style={{ width: "auto", margin: 0 }}
+              />
+            </div>
+          </label>
+          {createAccount ? (
+            <>
+              <label className="full-field">
+                Password for account
+                <input name="password" type="password" minLength={8} placeholder="Set a new password" />
+              </label>
+              <p className="form-message">{passwordRequirementsMessage}</p>
+            </>
+          ) : null}
+          <label className="full-field">
             Complete delivery address *
             <textarea
               name="address"
@@ -203,6 +236,7 @@ export function CheckoutForm({
         </div>
 
         {error ? <p className="form-error">{error}</p> : null}
+        {accountMessage ? <p className="form-success">{accountMessage}</p> : null}
       </div>
 
       <aside className="checkout-summary">

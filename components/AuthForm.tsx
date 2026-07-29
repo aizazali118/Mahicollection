@@ -4,6 +4,7 @@ import { Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { passwordRequirementsMessage } from "@/lib/password-policy";
 
 export function LoginForm({ adminOnly = false }: { adminOnly?: boolean }) {
   const router = useRouter();
@@ -69,9 +70,14 @@ export function LoginForm({ adminOnly = false }: { adminOnly?: boolean }) {
         )}
       </button>
       {!adminOnly ? (
-        <p className="auth-switch">
-          New to Mahi Collection? <Link href="/register">Create an account</Link>
-        </p>
+        <>
+          <p className="auth-switch">
+            New to Mahi Collection? <Link href="/register">Create an account</Link>
+          </p>
+          <p className="auth-switch">
+            <Link href="/reset-password">Reset password</Link>
+          </p>
+        </>
       ) : null}
     </form>
   );
@@ -92,6 +98,12 @@ export function RegisterForm() {
 
     if (password !== confirmPassword) {
       setError("Passwords do not match.");
+      setLoading(false);
+      return;
+    }
+
+    if (!/^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,128}$/.test(password)) {
+      setError(passwordRequirementsMessage);
       setLoading(false);
       return;
     }
@@ -159,6 +171,7 @@ export function RegisterForm() {
           autoComplete="new-password"
         />
       </label>
+      <p className="form-message">{passwordRequirementsMessage}</p>
       {error ? <p className="form-error">{error}</p> : null}
       <button className="button button-dark button-block" disabled={loading}>
         {loading ? (
