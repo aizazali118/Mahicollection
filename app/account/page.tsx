@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { formatMoney } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 import AccountProfile from "@/components/AccountProfile";
+import LogoutButton from "@/components/LogoutButton";
 
 export const metadata = {
   title: "My Account"
@@ -24,11 +25,14 @@ export default async function AccountPage() {
           <h1>Welcome, {user.name.split(" ")[0]}</h1>
           <p>{user.email}</p>
         </div>
-        {user.role === "ADMIN" ? (
-          <Link className="button button-outline" href="/admin">
-            Open Admin Panel
-          </Link>
-        ) : null}
+        <div style={{ display: "flex", gap: 8 }}>
+          {user.role === "ADMIN" ? (
+            <Link className="button button-outline" href="/admin">
+              Open Admin Panel
+            </Link>
+          ) : null}
+          <LogoutButton />
+        </div>
       </div>
 
       <div style={{ marginTop: 28 }}>

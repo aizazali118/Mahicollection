@@ -293,42 +293,46 @@ export function AdminProductForm({
               ref={galleryInputRef}
               type="file"
               accept="image/jpeg,image/png,image/webp,image/avif"
+              multiple
               onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
+                const files = Array.from(e.target.files || []);
+                if (!files.length) return;
                 setGalleryUploading(true);
                 setError("");
+                const uploaded: string[] = [];
                 try {
                   const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
                   const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
-                  let url = "";
-                  if (cloudName && uploadPreset) {
-                    const cloudData = new FormData();
-                    cloudData.append("file", file);
-                    cloudData.append("upload_preset", uploadPreset);
-                    const cloudResp = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/upload`, {
-                      method: "POST",
-                      body: cloudData
-                    });
-                    const cloudJson = await cloudResp.json();
-                    if (cloudResp.ok && cloudJson.secure_url) {
-                      url = cloudJson.secure_url;
+                  for (const file of files) {
+                    let url = "";
+                    if (cloudName && uploadPreset) {
+                      const cloudData = new FormData();
+                      cloudData.append("file", file);
+                      cloudData.append("upload_preset", uploadPreset);
+                      const cloudResp = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/upload`, {
+                        method: "POST",
+                        body: cloudData
+                      });
+                      const cloudJson = await cloudResp.json();
+                      if (cloudResp.ok && cloudJson.secure_url) {
+                        url = cloudJson.secure_url;
+                      }
                     }
+                    if (!url) {
+                      const data = new FormData();
+                      data.append("file", file);
+                      const resp = await fetch("/api/admin/upload", { method: "POST", body: data });
+                      const json = await resp.json();
+                      if (!resp.ok || !json.url) throw new Error(json.error || "Upload failed");
+                      url = json.url;
+                    }
+                    uploaded.push(url);
                   }
-                  if (!url) {
-                    const data = new FormData();
-                    data.append("file", file);
-                    const resp = await fetch("/api/admin/upload", { method: "POST", body: data });
-                    const json = await resp.json();
-                    if (!resp.ok || !json.url) throw new Error(json.error || "Upload failed");
-                    url = json.url;
-                  }
-                  setGalleryText((cur) => (cur ? `${cur}\n${url}` : url));
-                } catch (e: any) {
-                  setError(e?.message || "Gallery upload failed");
+                  setGalleryText((cur) => (cur ? `${cur}\n${uploaded.join("\n")}` : uploaded.join("\n")));
+                } catch (err: any) {
+                  setError(err?.message || "Gallery upload failed");
                 } finally {
                   setGalleryUploading(false);
-                  // clear the input so same file can be selected again
                   e.currentTarget.value = "";
                 }
               }}
@@ -340,6 +344,28 @@ export function AdminProductForm({
             rows={5}
             placeholder="One image URL per line"
           />
+
+          {/* Thumbnails preview and remove */}
+          <div className="gallery-thumbs" style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {galleryText
+              .split("\n")
+              .map((s) => s.trim())
+              .filter(Boolean)
+              .map((url, idx) => (
+                <div key={idx} className="thumb" style={{ position: "relative", width: 96, height: 96, border: "1px solid #eee", borderRadius: 6, overflow: "hidden" }}>
+                  <img src={url} alt={`gallery-${idx}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  <button
+                    type="button"
+                    className="admin-icon-danger"
+                    onClick={() => setGalleryText((cur) => cur.split("\n").filter((u) => u.trim() && u.trim() !== url).join("\n"))}
+                    style={{ position: "absolute", top: 6, right: 6, background: "rgba(255,255,255,0.9)", borderRadius: 4, padding: 4 }}
+                    aria-label="Remove image"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+          </div>
         </label>
       </section>
 

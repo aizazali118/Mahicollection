@@ -11,11 +11,11 @@ import { getStoreSettings } from "@/lib/store";
 export const maxDuration = 30;
 
 const schema = z.object({
-  name: z.string().trim().min(2).max(100),
-  email: z.string().trim().email().max(160),
-  phone: z.string().trim().min(7).max(30),
-  address: z.string().trim().min(8).max(500),
-  city: z.string().trim().min(2).max(100),
+  name: z.string().trim().min(2).max(100).optional(),
+  email: z.string().trim().email().max(160).optional(),
+  phone: z.string().trim().min(7).max(30).optional(),
+  address: z.string().trim().min(8).max(500).optional(),
+  city: z.string().trim().min(2).max(100).optional(),
   note: z.string().trim().max(1000).optional().default(""),
   couponCode: z.string().trim().max(40).optional(),
   createAccount: z.boolean().optional().default(false),
@@ -35,6 +35,31 @@ const schema = z.object({
 export async function POST(request: Request) {
   try {
     const body = schema.parse(await request.json());
+    // If user is logged in, fill missing contact fields from their profile or last order
+    const session = await getSessionPayload();
+    if (session?.userId) {
+      const user = await prisma.user.findUnique({
+        where: { id: session.userId },
+        select: { name: true, email: true }
+      });
+      const lastOrder = await prisma.order.findFirst({
+        where: { customerId: session.userId },
+        orderBy: { createdAt: "desc" },
+        select: { name: true, email: true, phone: true, address: true, city: true }
+      });
+
+      // fill from lastOrder -> user -> existing body
+      body.name = body.name || lastOrder?.name || user?.name || body.name;
+      body.email = body.email || lastOrder?.email || user?.email || body.email;
+      body.phone = body.phone || lastOrder?.phone || body.phone;
+      body.address = body.address || lastOrder?.address || body.address;
+      body.city = body.city || lastOrder?.city || body.city;
+    }
+
+    // After attempting to fill, ensure required fields exist
+    if (!body.name || !body.email || !body.phone || !body.address || !body.items || !body.items.length) {
+      throw new z.ZodError([]);
+    }
     if (body.createAccount && body.password && !isStrongPassword(body.password)) {
       return NextResponse.json({ error: passwordRequirementsMessage }, { status: 400 });
     }
@@ -147,14 +172,14 @@ export async function POST(request: Request) {
         ? 0
         : Number(settings.shippingFlatRate);
     const total = Math.max(0, subtotal - discount + shipping);
-    const session = await getSessionPayload();
+    // session already retrieved above
     const datePart = new Date().toISOString().slice(2, 10).replace(/-/g, "");
     const orderNumber = `MC-${datePart}-${randomUUID().slice(0, 6).toUpperCase()}`;
 
     const order = await prisma.$transaction(async (tx) => {
       let user = null;
       if (body.createAccount) {
-        const email = body.email.toLowerCase();
+        const email = body.email!.toLowerCase();
         const username = email.split("@")[0].replace(/[^a-z0-9_-]+/g, "").slice(0, 24) || `customer${randomBytes(4).toString("hex")}`;
         const existingUser = await tx.user.findFirst({
           where: { OR: [{ email }, { username }] },
@@ -164,10 +189,10 @@ export async function POST(request: Request) {
         if (!existingUser && body.password) {
           user = await tx.user.create({
             data: {
-              name: body.name,
+              name: body.name!,
               username,
               email,
-              passwordHash: await bcrypt.hash(body.password, 12)
+              passwordHash: await bcrypt.hash(body.password!, 12)
             }
           });
         }
@@ -209,11 +234,11 @@ export async function POST(request: Request) {
         data: {
           orderNumber,
           customerId: user?.id || session?.userId,
-          name: body.name,
-          email: body.email.toLowerCase(),
-          phone: body.phone,
-          address: body.address,
-          city: body.city,
+            name: body.name!,
+            email: body.email!.toLowerCase(),
+            phone: body.phone!,
+            address: body.address!,
+            city: body.city!,
           note: body.note || null,
           subtotal,
           discount,
