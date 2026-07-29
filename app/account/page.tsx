@@ -2,6 +2,9 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { formatMoney } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
+import dynamic from "next/dynamic";
+
+const AccountProfile = dynamic(() => import("@/components/AccountProfile"), { ssr: false });
 
 export const metadata = {
   title: "My Account"
@@ -28,6 +31,11 @@ export default async function AccountPage() {
             Open Admin Panel
           </Link>
         ) : null}
+      </div>
+
+      <div style={{ marginTop: 28 }}>
+        <h2>Profile</h2>
+        <AccountProfile />
       </div>
 
       <div className="account-orders">

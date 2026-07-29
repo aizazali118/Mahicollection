@@ -2,7 +2,7 @@
 
 import { CheckCircle2, Loader2, Tag } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useCart } from "@/components/CartProvider";
 import { formatMoney } from "@/lib/money";
 import { passwordRequirementsMessage } from "@/lib/password-policy";
@@ -26,12 +26,49 @@ export function CheckoutForm({
   const [error, setError] = useState("");
   const [accountMessage, setAccountMessage] = useState("");
   const [createAccount, setCreateAccount] = useState(true);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [city, setCity] = useState("");
+  const [address, setAddress] = useState("");
+  const [note, setNote] = useState("");
+  const [password, setPassword] = useState("");
 
   const shipping = useMemo(
     () => (subtotal >= freeShippingThreshold ? 0 : shippingFlatRate),
     [subtotal, freeShippingThreshold, shippingFlatRate]
   );
   const total = Math.max(0, subtotal - discount + shipping);
+
+  useEffect(() => {
+    let mounted = true;
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((data) => {
+        if (!mounted) return;
+        const user = data?.user || null;
+        const last = data?.lastOrder || null;
+        if (user) {
+          setName(user.name || "");
+          setEmail(user.email || "");
+          // if we have recent order contact info, prefer it
+          if (last) {
+            setPhone(last.phone || "");
+            setAddress(last.address || "");
+            setCity(last.city || "");
+            setName(last.name || user.name || "");
+            setEmail(last.email || user.email || "");
+          }
+          // hide create-account option for logged-in users
+          setCreateAccount(false);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   async function applyCoupon() {
     const code = couponCode.trim();
@@ -68,17 +105,16 @@ export function CheckoutForm({
     setSubmitting(true);
     setError("");
     const whatsappWindow = window.open("", "mahi-order-whatsapp");
-    const formData = new FormData(event.currentTarget);
     const payload = {
-      name: String(formData.get("name") || ""),
-      email: String(formData.get("email") || ""),
-      phone: String(formData.get("phone") || ""),
-      address: String(formData.get("address") || ""),
-      city: String(formData.get("city") || ""),
-      note: String(formData.get("note") || ""),
+      name: String(name || ""),
+      email: String(email || ""),
+      phone: String(phone || ""),
+      address: String(address || ""),
+      city: String(city || ""),
+      note: String(note || ""),
       couponCode: couponCode.trim() || undefined,
       createAccount,
-      password: String(formData.get("password") || ""),
+      password: String(password || ""),
       items: items.map((item) => ({
         productId: item.productId,
         variantId: item.variantId,
@@ -175,19 +211,19 @@ export function CheckoutForm({
         <div className="form-grid">
           <label>
             Full name *
-            <input name="name" required autoComplete="name" />
+            <input name="name" required autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} />
           </label>
           <label>
             Email address *
-            <input name="email" type="email" required autoComplete="email" />
+            <input name="email" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
           </label>
           <label>
             Phone number *
-            <input name="phone" type="tel" required autoComplete="tel" />
+            <input name="phone" type="tel" required autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
           </label>
           <label>
             City *
-            <input name="city" required autoComplete="address-level2" />
+            <input name="city" required autoComplete="address-level2" value={city} onChange={(e) => setCity(e.target.value)} />
           </label>
           <label className="full-field">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
@@ -204,7 +240,7 @@ export function CheckoutForm({
             <>
               <label className="full-field">
                 Password for account
-                <input name="password" type="password" minLength={8} placeholder="Set a new password" />
+                <input name="password" type="password" minLength={8} placeholder="Set a new password" value={password} onChange={(e) => setPassword(e.target.value)} />
               </label>
               <p className="form-message">{passwordRequirementsMessage}</p>
             </>
@@ -216,6 +252,8 @@ export function CheckoutForm({
               required
               autoComplete="street-address"
               placeholder="House, street, area, landmark"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
             />
           </label>
           <label className="full-field">
@@ -223,6 +261,8 @@ export function CheckoutForm({
             <textarea
               name="note"
               placeholder="Size guidance, delivery instructions, or any message for our team"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
             />
           </label>
         </div>
