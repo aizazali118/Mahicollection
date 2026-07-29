@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { passwordRequirementsMessage } from "@/lib/password-policy";
@@ -10,6 +10,8 @@ export default function ResetPasswordPage() {
   const token = searchParams.get("token") || "";
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const [confirmVisible, setConfirmVisible] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
@@ -50,27 +52,47 @@ export default function ResetPasswordPage() {
         <h2>Set a new password</h2>
         <p>{passwordRequirementsMessage}</p>
         <form className="auth-form" onSubmit={submit}>
-          <label>
+          <label className="password-field">
             New password
-            <input
-              name="password"
-              type="password"
-              required
-              minLength={8}
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-            />
+            <div className="password-field__wrap">
+              <input
+                name="password"
+                type={passwordVisible ? "text" : "password"}
+                required
+                minLength={8}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+              />
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() => setPasswordVisible((current) => !current)}
+                aria-label={passwordVisible ? "Hide password" : "Show password"}
+              >
+                {passwordVisible ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </label>
-          <label>
+          <label className="password-field">
             Confirm password
-            <input
-              name="confirmPassword"
-              type="password"
-              required
-              minLength={8}
-              value={confirmPassword}
-              onChange={(event) => setConfirmPassword(event.target.value)}
-            />
+            <div className="password-field__wrap">
+              <input
+                name="confirmPassword"
+                type={confirmVisible ? "text" : "password"}
+                required
+                minLength={8}
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+              />
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() => setConfirmVisible((current) => !current)}
+                aria-label={confirmVisible ? "Hide password" : "Show password"}
+              >
+                {confirmVisible ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </label>
           {error ? <p className="form-error">{error}</p> : null}
           {success ? <p className="form-success">{success}</p> : null}

@@ -5,6 +5,7 @@ import {
   ChevronRight,
   Minus,
   Plus,
+  Send,
   ShoppingBag,
   X,
   ZoomIn
@@ -149,6 +150,30 @@ export function ProductDetails({ product }: { product: ProductDetailsData }) {
             .join(" / ")
         : undefined
     });
+  }
+
+  function sendProductOnWhatsApp() {
+    const phone = "+923359574017".replace(/\D/g, "");
+    const message = [
+      "Assalam-o-Alaikum Mahi Collection,",
+      "",
+      `Product: ${product.title}`,
+      selectedVariant
+        ? `Variant: ${[selectedVariant.colorName, selectedVariant.size]
+            .filter(Boolean)
+            .join(" / ")}`
+        : undefined,
+      `Quantity: ${quantity}`,
+      `Price: ${formatMoney(price)}`,
+      `Link: ${window.location.href}`
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    window.open(
+      `https://wa.me/${phone}?text=${encodeURIComponent(message)}`,
+      "_blank"
+    );
   }
 
   function updateZoomOrigin(event: React.MouseEvent<HTMLDivElement>) {
@@ -332,6 +357,15 @@ export function ProductDetails({ product }: { product: ProductDetailsData }) {
           >
             <ShoppingBag size={18} />
             {stock < 1 ? "Unavailable" : "Add to Bag"}
+          </button>
+          <button
+            type="button"
+            className="button button-whatsapp product-add-button"
+            onClick={sendProductOnWhatsApp}
+            disabled={stock < 1}
+          >
+            <Send size={18} />
+            Send on WhatsApp
           </button>
         </div>
 

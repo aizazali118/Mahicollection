@@ -1599,6 +1599,33 @@ main {
   resize: vertical;
 }
 
+.password-field {
+  position: relative;
+}
+
+.password-field__wrap {
+  position: relative;
+}
+
+.password-field__wrap input {
+  padding-right: 46px;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
 .rating-input {
   display: flex;
 }

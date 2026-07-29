@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -10,6 +10,7 @@ export function LoginForm({ adminOnly = false }: { adminOnly?: boolean }) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [passwordVisible, setPasswordVisible] = useState(false);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -49,14 +50,24 @@ export function LoginForm({ adminOnly = false }: { adminOnly?: boolean }) {
           placeholder={adminOnly ? "mahiadmin" : "you@example.com"}
         />
       </label>
-      <label>
+      <label className="password-field">
         Password
-        <input
-          name="password"
-          type="password"
-          required
-          autoComplete="current-password"
-        />
+        <div className="password-field__wrap">
+          <input
+            name="password"
+            type={passwordVisible ? "text" : "password"}
+            required
+            autoComplete="current-password"
+          />
+          <button
+            type="button"
+            className="password-toggle"
+            onClick={() => setPasswordVisible((current) => !current)}
+            aria-label={passwordVisible ? "Hide password" : "Show password"}
+          >
+            {passwordVisible ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
+        </div>
       </label>
       {error ? <p className="form-error">{error}</p> : null}
       <button className="button button-dark button-block" disabled={loading}>
@@ -87,6 +98,8 @@ export function RegisterForm() {
   const router = useRouter();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const [confirmVisible, setConfirmVisible] = useState(false);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -151,25 +164,45 @@ export function RegisterForm() {
         Email address
         <input name="email" type="email" required autoComplete="email" />
       </label>
-      <label>
+      <label className="password-field">
         Password
-        <input
-          name="password"
-          type="password"
-          required
-          minLength={8}
-          autoComplete="new-password"
-        />
+        <div className="password-field__wrap">
+          <input
+            name="password"
+            type={passwordVisible ? "text" : "password"}
+            required
+            minLength={8}
+            autoComplete="new-password"
+          />
+          <button
+            type="button"
+            className="password-toggle"
+            onClick={() => setPasswordVisible((current) => !current)}
+            aria-label={passwordVisible ? "Hide password" : "Show password"}
+          >
+            {passwordVisible ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
+        </div>
       </label>
-      <label>
+      <label className="password-field">
         Confirm password
-        <input
-          name="confirmPassword"
-          type="password"
-          required
-          minLength={8}
-          autoComplete="new-password"
-        />
+        <div className="password-field__wrap">
+          <input
+            name="confirmPassword"
+            type={confirmVisible ? "text" : "password"}
+            required
+            minLength={8}
+            autoComplete="new-password"
+          />
+          <button
+            type="button"
+            className="password-toggle"
+            onClick={() => setConfirmVisible((current) => !current)}
+            aria-label={confirmVisible ? "Hide password" : "Show password"}
+          >
+            {confirmVisible ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
+        </div>
       </label>
       <p className="form-message">{passwordRequirementsMessage}</p>
       {error ? <p className="form-error">{error}</p> : null}

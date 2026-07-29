@@ -49,7 +49,7 @@ export default async function OrderSuccessPage({
     .filter(Boolean)
     .join("\n");
 
-  const phone = settings.whatsappNumber.replace(/\D/g, "");
+  const phone = "+923359574017".replace(/\D/g, "");
   const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
 
   return (
