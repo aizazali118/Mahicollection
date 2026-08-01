@@ -19,7 +19,7 @@ const schema = z.object({
   note: z.string().trim().max(1000).optional().default(""),
   couponCode: z.string().trim().max(40).optional(),
   createAccount: z.boolean().optional().default(false),
-  password: z.string().trim().min(8).max(128).optional(),
+  password: z.string().trim().max(128).optional(),
   items: z
     .array(
       z.object({
@@ -59,6 +59,12 @@ export async function POST(request: Request) {
     // After attempting to fill, ensure required fields exist
     if (!body.name || !body.email || !body.phone || !body.address || !body.items || !body.items.length) {
       throw new z.ZodError([]);
+    }
+    if (body.createAccount && !body.password) {
+      return NextResponse.json(
+        { error: "Please set a password to create an account." },
+        { status: 400 }
+      );
     }
     if (body.createAccount && body.password && !isStrongPassword(body.password)) {
       return NextResponse.json({ error: passwordRequirementsMessage }, { status: 400 });

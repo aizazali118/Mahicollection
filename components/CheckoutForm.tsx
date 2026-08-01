@@ -114,7 +114,7 @@ export function CheckoutForm({
       note: String(note || ""),
       couponCode: couponCode.trim() || undefined,
       createAccount,
-      password: String(password || ""),
+      password: password ? String(password) : undefined,
       items: items.map((item) => ({
         productId: item.productId,
         variantId: item.variantId,
@@ -240,7 +240,15 @@ export function CheckoutForm({
             <>
               <label className="full-field">
                 Password for account
-                <input name="password" type="password" minLength={8} placeholder="Set a new password" value={password} onChange={(e) => setPassword(e.target.value)} />
+                <input
+                  name="password"
+                  type="password"
+                  minLength={8}
+                  required
+                  placeholder="Set a new password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
               </label>
               <p className="form-message">{passwordRequirementsMessage}</p>
             </>
