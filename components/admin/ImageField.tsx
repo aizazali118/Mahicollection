@@ -17,14 +17,15 @@ export function ImageField({
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+  const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+  const canUseCloudinary = Boolean(cloudName && uploadPreset);
 
   async function upload(file: File) {
     setUploading(true);
     setError("");
     try {
       // Prefer Cloudinary unsigned uploads if configured via NEXT_PUBLIC_ env vars
-      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-      const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
       if (cloudName && uploadPreset) {
         const cloudData = new FormData();
         cloudData.append("file", file);
@@ -85,7 +86,11 @@ export function ImageField({
           ) : (
             <ImagePlus size={17} />
           )}
-          {uploading ? "Uploading..." : "Upload to Vercel Blob"}
+          {uploading
+            ? "Uploading..."
+            : canUseCloudinary
+            ? "Upload to Cloudinary"
+            : "Upload image"}
         </button>
         <input
           ref={inputRef}

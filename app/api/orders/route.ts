@@ -266,7 +266,9 @@ export async function POST(request: Request) {
       });
     });
 
-    const whatsappNumber = settings.whatsappNumber.replace(/\D/g, "");
+    const whatsappNumber = (
+      settings.whatsappNumber || process.env.WHATSAPP_ORDER_NUMBER || "+923359574017"
+    ).replace(/\D/g, "");
     const money = (value: number) =>
       new Intl.NumberFormat("en-PK", {
         style: "currency",

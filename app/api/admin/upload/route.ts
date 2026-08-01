@@ -52,6 +52,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ url: blob.url });
     }
 
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+    const cloudPreset = process.env.CLOUDINARY_UPLOAD_PRESET;
+    if (cloudName && cloudPreset) {
+      const cloudData = new FormData();
+      cloudData.append("file", file);
+      cloudData.append("upload_preset", cloudPreset);
+
+      const cloudResp = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+        method: "POST",
+        body: cloudData
+      });
+      const cloudJson = await cloudResp.json();
+      if (cloudResp.ok && cloudJson.secure_url) {
+        return NextResponse.json({ url: cloudJson.secure_url });
+      }
+    }
+
     // Local fallback: write to public/uploads with a random suffix
     const uploadsDir = join(process.cwd(), "public", "uploads");
     await mkdir(uploadsDir, { recursive: true });

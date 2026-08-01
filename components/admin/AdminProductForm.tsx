@@ -267,7 +267,10 @@ export function AdminProductForm({
           <div>
             <h2>Product images</h2>
             <p>
-              Upload through Vercel Blob or paste a public/local image URL.
+              {process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME &&
+              process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET
+                ? "Upload through Cloudinary or paste a public/local image URL."
+                : "Upload through Vercel Blob or paste a public/local image URL."}
             </p>
           </div>
         </div>

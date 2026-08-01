@@ -178,7 +178,7 @@ async function main() {
       facebook: "https://facebook.com",
       instagram: "https://instagram.com",
       tiktok: "https://tiktok.com",
-      whatsappNumber: "923000000000",
+      whatsappNumber: "923359574017",
       currency: "PKR",
       shippingFlatRate: 250,
       freeShippingThreshold: 10000,
